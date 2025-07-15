@@ -1,48 +1,43 @@
 # Import python packages
 import streamlit as st
+from snowflake.snowpark.context import get_active_session
 from snowflake.snowpark.functions import col
-import requests
-import pandas as pd
 
-# UI title and instructions
-st.title("Customize Your Smoothie! 🥤")
-st.markdown("Choose the fruits you want in your custom Smoothie!")
+# Write directly to the app
+st.title(":cup_with_straw: Customise Your Smoothie!:cup_with_straw:")
+st.write(
+  """Chose the fruits you want in youe custom Smoothie!
+  """)
 
-# Input for smoothie name
-name_on_order = st.text_input("Name on Smoothie: ")
-st.write("The name on your smoothie will be:", name_on_order)
+name_on_order = st.text_input('Name on Smoothie: ')
+st.write('The name on your smoothie will be: ', name_on_order)
 
-# Get fruit list from Snowflake table
-cnx = st.connection("snowflake")
-session = cnx.session()
-fruit_df = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).to_pandas()
+session = get_active_session()
+my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
+#st.dataframe(data=my_dataframe, use_container_width=True)
 
-# Get list of fruit names from the DataFrame
-fruit_list = fruit_df['FRUIT_NAME'].tolist()
+ingredients_list = st.multiselect(
+    "Chose up to 5 ingredients: "
+    , my_dataframe
+    , max_selections=5
+    )
 
-# Let user select up to 5 ingredients
-ingredients_list = st.multiselect("Choose up to 5 ingredients:", fruit_list, max_selections=5)
+if ingredients_list:
 
-# Build and submit the order
-if ingredients_list and name_on_order:
-    ingredients_string = ', '.join(ingredients_list)
-    st.write("Ingredients selected:", ingredients_string)
+    ingredients_string = ''
 
-    if st.button('Submit Order'):
-        session.table("smoothies.public.orders").insert([ingredients_string, name_on_order])
-        st.success("✅ Your Smoothie is ordered!")
+    for fruit_chosen in ingredients_list:
+        ingredients_string += fruit_chosen + ' '
+    #st.write(ingredients_string)
 
-# Call the external fruit API
-smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
+    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order)
+        values ('""" + ingredients_string + """', '"""+name_on_order+ """')"""
+    
+    #st.write(my_insert_stmt)
 
-# Handle response safely
-if smoothiefroot_response.status_code == 200:
-    try:
-        fruit_data = smoothiefroot_response.json()
-        df = pd.DataFrame([fruit_data]) if isinstance(fruit_data, dict) else pd.DataFrame(fruit_data)
-        st.dataframe(df, use_container_width=True)
-    except ValueError:
-        st.error("⚠️ API response is not valid JSON.")
-        st.code(smoothiefroot_response.text)
-else:
-    st.error(f"❌ API call failed with status code {smoothiefroot_response.status_code}")
+    time_to_insert = st.button('Submit Order')
+
+    if time_to_insert:
+        session.sql(my_insert_stmt).collect()
+        st.success(' Your Smoothie is ordered!', icon="✅")
+    

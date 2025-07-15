@@ -8,7 +8,7 @@ st.title("Customize Your Smoothie! 🥤")
 st.markdown("Choose the fruits you want in your custom Smoothie!")
 
 # Input for smoothie name
-name_on_order = st.text_input("Name on Smoothie: ")
+name_on_order = st.text_input("Name on Smoothie: ", key="smoothie_name")
 st.write("The name on your smoothie will be:", name_on_order)
 
 # Get fruit list from Snowflake table

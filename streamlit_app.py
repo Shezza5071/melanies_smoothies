@@ -1,6 +1,7 @@
-# Import python packages
 import streamlit as st
-from snowflake.snowpark.functions import col
+import pandas as pd
+import requests
+from snowflake.snowpark.functions import col, lit
 
 # UI title and instructions
 st.title("Customize Your Smoothie! 🥤")
@@ -14,31 +15,26 @@ st.write("The name on your smoothie will be:", name_on_order)
 cnx = st.connection("snowflake")
 session = cnx.session()
 fruit_df = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).to_pandas()
-
-# Get list of fruit names from the DataFrame
 fruit_list = fruit_df['FRUIT_NAME'].tolist()
 
 # Let user select up to 5 ingredients
-ingredients_list = st.multiselect("Choose up to 5 ingredients:", fruit_df, max_selections=5)
+ingredients_list = st.multiselect("Choose up to 5 ingredients:", fruit_list, max_selections=5)
 
 # Build and submit the order
 if ingredients_list and name_on_order:
-
-    # Convert list to space-separated string
     ingredients_string = ', '.join(ingredients_list)
-
     st.write("Ingredients selected:", ingredients_string)
 
-    # Add submit button
     if st.button('Submit Order'):
-        insert_stmt = f"""
-            INSERT INTO smoothies.public.orders (ingredients, name_on_order)
-            VALUES ('{ingredients_string}', '{name_on_order}')
-        """
-        session.sql(insert_stmt).collect()
+        session.table("smoothies.public.orders").insert([lit(ingredients_string), lit(name_on_order)])
         st.success("✅ Your Smoothie is ordered!")
 
-import requests
+# External API request to get fruit info
 smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
-#st.text(smoothiefroot_response.json())
-sf_df = st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
+
+if smoothiefroot_response.status_code == 200:
+    fruit_data = smoothiefroot_response.json()
+    df = pd.DataFrame([fruit_data]) if isinstance(fruit_data, dict) else pd.DataFrame(fruit_data)
+    st.dataframe(df, use_container_width=True)
+else:
+    st.error("Failed to fetch data from Smoothiefroot API.")

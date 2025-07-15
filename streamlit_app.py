@@ -2,6 +2,10 @@
 import streamlit as st
 from snowflake.snowpark.functions import col
 
+# Connect to Snowflake
+cnx = st.connection("snowflake")
+session = cnx.session  # This gives you the Snowpark session
+
 # UI title and instructions
 st.title("Customize Your Smoothie! 🥤")
 st.markdown("Choose the fruits you want in your custom Smoothie!")
